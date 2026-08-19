@@ -1,5 +1,6 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { chatTools, type AppUIMessage, type AppTools } from '@shared/chatAi';
 import { cleanAssistantText, getParametricText } from '@shared/parametricParts';
@@ -329,16 +330,24 @@ function jsonResponse(body: unknown, status: number) {
 const THINKING_BUDGET_TOKENS = 9000;
 const PARAMETRIC_MAX_OUTPUT_TOKENS = 64000;
 
-type ChatProvider = 'anthropic' | 'google' | 'openrouter';
+type ChatProvider = 'anthropic' | 'google' | 'openai' | 'openrouter';
 
 function providerFor(modelId: string): ChatProvider {
   if (modelId.startsWith('anthropic/')) return 'anthropic';
   if (modelId.startsWith('google/')) return 'google';
+  if (
+    modelId.startsWith('openai/') ||
+    modelId.startsWith('custom/') ||
+    modelId.startsWith('openai-compatible/')
+  ) {
+    return 'openai';
+  }
   return 'openrouter';
 }
 
 type AnthropicProvider = ReturnType<typeof createAnthropic>;
 type GoogleProvider = ReturnType<typeof createGoogleGenerativeAI>;
+type OpenAIProvider = ReturnType<typeof createOpenAI>;
 
 // The Vercel AI SDK's Anthropic provider expects ANTHROPIC_BASE_URL to already
 // include the "/v1" path segment (its built-in default is
@@ -354,15 +363,24 @@ function normalizedAnthropicBaseURL(): string | undefined {
   return base.endsWith('/v1') ? base : `${base}/v1`;
 }
 
+function normalizedOpenAIBaseURL(): string | undefined {
+  const raw = env('OPENAI_BASE_URL').trim();
+  if (!raw) return undefined;
+  const base = raw.replace(/\/+$/, '');
+  return base.endsWith('/v1') ? base : `${base}/v1`;
+}
+
 type ChatProviders = {
   anthropic: () => AnthropicProvider;
   google: () => GoogleProvider;
+  openai: () => OpenAIProvider;
   openrouter: () => ReturnType<typeof createOpenRouter>;
 };
 
 function createChatProviders(): ChatProviders {
   let anthropic: AnthropicProvider | undefined;
   let google: GoogleProvider | undefined;
+  let openai: OpenAIProvider | undefined;
   let openrouter: ReturnType<typeof createOpenRouter> | undefined;
   return {
     anthropic: () => {
@@ -381,6 +399,19 @@ function createChatProviders(): ChatProviders {
       });
       return google;
     },
+    openai: () => {
+      if (!openai) {
+        const baseURL = normalizedOpenAIBaseURL();
+        const apiKey =
+          env('OPENAI_API_KEY').trim() ||
+          (baseURL ? 'dummy-key' : requiredEnv('OPENAI_API_KEY'));
+        openai = createOpenAI({
+          apiKey,
+          ...(baseURL ? { baseURL, compatibility: 'compatible' } : {}),
+        });
+      }
+      return openai;
+    },
     openrouter: () => {
       openrouter ??= createOpenRouter({
         apiKey: requiredEnv('OPENROUTER_API_KEY'),
@@ -394,8 +425,9 @@ function createChatProviders(): ChatProviders {
  * Map a `<provider>/<model>` ID to a configured LanguageModel + the
  * provider-specific options the AI SDK expects at the streamText boundary.
  *
- * Anthropic and Google are hit directly via their respective AI SDK providers.
- * Everything else (OpenAI, MoonshotAI, …) keeps going through OpenRouter so we
+ * Anthropic, Google, and OpenAI (including custom OpenAI-compatible endpoints)
+ * are hit directly via their respective AI SDK providers.
+ * Everything else (MoonshotAI, …) keeps going through OpenRouter so we
  * don't have to wire a dedicated provider per vendor.
  */
 function buildChatModel(
@@ -457,6 +489,29 @@ function buildChatModel(
           },
         },
       },
+    };
+  }
+
+  if (
+    modelId.startsWith('openai/') ||
+    modelId.startsWith('custom/') ||
+    modelId.startsWith('openai-compatible/')
+  ) {
+    const prefix = modelId.startsWith('openai/')
+      ? 'openai/'
+      : modelId.startsWith('custom/')
+        ? 'custom/'
+        : 'openai-compatible/';
+    const id = modelId.slice(prefix.length);
+    return {
+      model: providers.openai()(id),
+      providerOptions: thinking
+        ? {
+            openai: {
+              reasoningEffort: hasCappedThinkingBudget ? 'low' : 'high',
+            },
+          }
+        : undefined,
     };
   }
 
