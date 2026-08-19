@@ -88,6 +88,10 @@ const MODEL_PRICES: Record<
     cacheRead: 0.5,
     cacheWrite: 6.25,
   },
+  'openai/thomas-15--ep-kimi-k3-server.us-west.modal.direct': {
+    input: 0.5,
+    output: 2.0,
+  },
 
   // xAI — cached input reads at 25% of input; no cache-write surcharge.
   'x-ai/grok-4.6': { input: 2, output: 6, cacheRead: 0.5, cacheWrite: 2 },

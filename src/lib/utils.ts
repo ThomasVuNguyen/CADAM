@@ -237,6 +237,15 @@ export function getInitials(fullName: string | null) {
 
 export const PARAMETRIC_MODELS: ModelConfig[] = [
   {
+    id: 'openai/thomas-15--ep-kimi-k3-server.us-west.modal.direct',
+    name: 'Kimi K3 (Modal Endpoint)',
+    description: 'Custom Modal inference endpoint running Kimi K3',
+    provider: 'OpenAI',
+    supportsTools: true,
+    supportsThinking: true,
+    supportsVision: false,
+  },
+  {
     id: 'google/gemini-3.1-pro-preview',
     name: 'Gemini 3.1 Pro',
     description: 'Latest Google model with excellent multi-modal capabilities',
