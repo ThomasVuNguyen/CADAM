@@ -506,7 +506,11 @@ function buildChatModel(
       : modelId.startsWith('custom/')
         ? 'custom/'
         : 'openai-compatible/';
-    const id = modelId.slice(prefix.length);
+    let id = modelId.slice(prefix.length);
+    const customModel = env('OPENAI_MODEL').trim();
+    if (customModel && env('OPENAI_BASE_URL').trim()) {
+      id = customModel;
+    }
     return {
       model: providers.openai()(id),
       providerOptions: thinking
