@@ -32,12 +32,14 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export async function requireUser(request: Request): Promise<User> {
+  const authHeader = request.headers.get('Authorization') ?? '';
+  const token = authHeader.replace(/^Bearer\s+/i, '');
   const supabase = getAnonSupabaseClient({
     global: {
-      headers: { Authorization: request.headers.get('Authorization') ?? '' },
+      headers: { Authorization: authHeader },
     },
   });
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getUser(token || undefined);
   if (error || !data.user?.email) throw new Error('Unauthorized');
   return data.user;
 }

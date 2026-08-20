@@ -1046,14 +1046,16 @@ export async function handleAiChatRequest(req: Request) {
     return jsonResponse({ error: 'Method not allowed' }, 405);
   }
 
+  const authHeader = req.headers.get('Authorization') ?? '';
+  const token = authHeader.replace(/^Bearer\s+/i, '');
   const supabaseClient = getAnonSupabaseClient({
     global: {
-      headers: { Authorization: req.headers.get('Authorization') ?? '' },
+      headers: { Authorization: authHeader },
     },
   });
   const {
     data: { user },
-  } = await supabaseClient.auth.getUser();
+  } = await supabaseClient.auth.getUser(token || undefined);
 
   if (!user?.id || !user.email) {
     return jsonResponse({ error: 'Unauthorized' }, 401);
