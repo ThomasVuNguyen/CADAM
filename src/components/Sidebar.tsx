@@ -149,7 +149,7 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
                   alt="Logo"
                 />
                 <span className="rounded bg-adam-blue/20 px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-adam-blue">
-                  v0.0.1
+                  v0.0.2
                 </span>
               </div>
             ) : (
