@@ -510,12 +510,19 @@ function buildChatModel(
         ? 'custom/'
         : 'openai-compatible/';
     let id = modelId.slice(prefix.length);
+    const customBaseURL = env('OPENAI_BASE_URL').trim();
     const customModel = env('OPENAI_MODEL').trim();
-    if (customModel && env('OPENAI_BASE_URL').trim()) {
+    if (customModel && customBaseURL) {
       id = customModel;
     }
+    // When a custom base URL is configured (Modal, vLLM, etc.), use the
+    // Chat Completions API (.chat) instead of the default Responses API,
+    // because most OpenAI-compatible endpoints don't support /responses.
+    const useChat = !!customBaseURL;
     return {
-      model: providers.openai()(id),
+      model: useChat
+        ? providers.openai().chat(id)
+        : providers.openai()(id),
       providerOptions: thinking
         ? {
             openai: {
