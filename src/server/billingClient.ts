@@ -78,7 +78,8 @@ const DEV_TOKENS = {
   total: 3_000_000,
 };
 
-const isBypassed = () => env('ENVIRONMENT') === 'local';
+const isBypassed = () =>
+  env('ENVIRONMENT') === 'local' || !env('BILLING_SERVICE_URL');
 
 const devStatus = (): BillingStatus => ({
   user: { hasTrialed: false },
