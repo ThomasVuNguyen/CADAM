@@ -197,13 +197,20 @@ export function PromptView() {
             if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
             return headers;
           },
-          prepareSendMessagesRequest: ({ body }) => ({
-            body: {
-              conversationId: conversation.id,
-              model,
-              ...(body ?? {}),
-            },
-          }),
+          prepareSendMessagesRequest: async ({ body }) => {
+            const accessToken = (await supabase.auth.getSession()).data.session
+              ?.access_token;
+            const headers: Record<string, string> = {};
+            if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+            return {
+              headers,
+              body: {
+                conversationId: conversation.id,
+                model,
+                ...(body ?? {}),
+              },
+            };
+          },
         }),
         sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
       });

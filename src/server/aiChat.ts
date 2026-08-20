@@ -36,7 +36,10 @@ import {
   resolveDanglingToolParts,
 } from './chatToolPersistence';
 import { handleMeshRequest } from './mesh';
-import { getAnonSupabaseClient } from './supabaseClient';
+import {
+  getAnonSupabaseClient,
+  getServiceRoleSupabaseClient,
+} from './supabaseClient';
 
 /**
  * USD list price per **million** tokens, keyed by the same model IDs the
@@ -1052,6 +1055,7 @@ export async function handleAiChatRequest(req: Request) {
 
   const authHeader = req.headers.get('Authorization') ?? '';
   const token = authHeader.replace(/^Bearer\s+/i, '');
+  const serviceClient = getServiceRoleSupabaseClient();
   const supabaseClient = getAnonSupabaseClient({
     global: {
       headers: { Authorization: authHeader },
@@ -1059,9 +1063,17 @@ export async function handleAiChatRequest(req: Request) {
   });
   const {
     data: { user },
-  } = await supabaseClient.auth.getUser(token || undefined);
+    error: userError,
+  } = await (token
+    ? serviceClient.auth.getUser(token)
+    : supabaseClient.auth.getUser());
 
-  if (!user?.id || !user.email) {
+  if (userError || !user?.id || !user.email) {
+    console.error('[handleAiChatRequest] auth failure:', {
+      hasAuthHeader: !!authHeader,
+      tokenLength: token.length,
+      userError,
+    });
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
 
@@ -1070,7 +1082,7 @@ export async function handleAiChatRequest(req: Request) {
     return jsonResponse({ error: 'Invalid request body' }, 400);
   }
 
-  const { data: conversation, error: conversationError } = await supabaseClient
+  const { data: conversation, error: conversationError } = await serviceClient
     .from('conversations')
     .select('id, type, user_id, current_message_leaf_id')
     .eq('id', rawBody.conversationId)

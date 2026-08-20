@@ -185,7 +185,12 @@ export function ChatSession({
   const billingErrorHandledRef = useRef(false);
   const billingAwareFetch = useCallback<typeof fetch>(
     async (input, init) => {
-      const response = await fetch(input, init);
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const headers = new Headers(init?.headers);
+      if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+      const response = await fetch(input, { ...init, headers });
       if (response.status === 402) {
         billingErrorHandledRef.current = true;
         queryClient.invalidateQueries({ queryKey: ['billing', 'status'] });
@@ -211,13 +216,19 @@ export function ChatSession({
         ),
         headers: authHeaders,
         fetch: billingAwareFetch,
-        prepareSendMessagesRequest: ({ body }) => ({
-          body: {
-            conversationId: conversation.id,
-            model,
-            ...(body ?? {}),
-          },
-        }),
+        prepareSendMessagesRequest: async ({ body }) => {
+          const token = (await supabase.auth.getSession()).data.session?.access_token;
+          const headers: Record<string, string> = {};
+          if (token) headers.Authorization = `Bearer ${token}`;
+          return {
+            headers,
+            body: {
+              conversationId: conversation.id,
+              model,
+              ...(body ?? {}),
+            },
+          };
+        },
       }),
     [authHeaders, billingAwareFetch, conversation.id, conversation.type, model],
   );
